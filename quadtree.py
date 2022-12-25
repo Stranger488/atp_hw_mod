@@ -1,4 +1,6 @@
-from mapgen import PASSABLE
+from enum import Enum
+
+from mapgen import PASSABLE, IMPASSABLE
 
 ##############
 ## UL ## UR ##
@@ -119,7 +121,7 @@ class Tile:
                 # depth limit is given and Tile is at limit
                 # forces a leaf Tile
                 # end recursion here and (arbitrary) set color of Tile
-                self.color = PASSABLE
+                self.color = IMPASSABLE
             else:
                 # not a leaf Tile
                 # split Tile and do recursion on childs

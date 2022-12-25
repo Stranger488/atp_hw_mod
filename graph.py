@@ -26,7 +26,6 @@ def neighbours(qt, tile):
     return neigh
 
 
-
 def make_adjacent_function(quadtree):
     """
     Return a function suitable as adjacent function as parameter to A*
@@ -47,5 +46,3 @@ def make_adjacent_function(quadtree):
         return a
 
     return adjacent
-
-

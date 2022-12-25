@@ -1,12 +1,14 @@
 import argparse
 from pathlib import Path
+from time import time
 from tkinter import *
 from tkinter import filedialog
+from tkinter.ttk import Combobox
 
 from PIL import ImageTk, ImageDraw
 import mapgen
 import quadtree
-import astar
+import pathfinder
 import graph
 import json_reader
 from mapgen import IMPASSABLE
@@ -17,7 +19,7 @@ MAPSIZE = 512
 
 class MainObject:
     def run(self, args):
-        self.input_file = args.in_json
+        self.input_file = json_reader.BASE_DIR + "/" + args.in_json
         self.mapimage = None
         self.quadtree = None
         self.startpoint = None
@@ -32,7 +34,11 @@ class MainObject:
 
     def _setupgui(self):
         self.root = Tk()
-        self.root.title('QuadTree A*')
+        self.root.title('QuadTree PathFinder')
+
+        # width = self.root.winfo_screenwidth()
+        # height = self.root.winfo_screenheight()
+        # self.root.geometry("%dx%d" % (width, height))
 
         self.canvas = Canvas(self.root, bg='gray', width=MAPSIZE, height=MAPSIZE)
         self.canvas.pack(side=LEFT)
@@ -42,6 +48,7 @@ class MainObject:
         rightframe = Frame(self.root)
         rightframe.pack(side=LEFT, fill=Y)
 
+        # openfile
         openfile = Frame(rightframe, relief=SUNKEN, borderwidth=2)
         openfile.pack(fill=X, padx=5, pady=5)
 
@@ -55,6 +62,21 @@ class MainObject:
         quadtreebtn = Button(openfile, text='Open file', command=self.onButtonOpenFilePress)
         quadtreebtn.pack(pady=2)
 
+        # choosealgo
+        choosealgo = Frame(rightframe, relief=SUNKEN, borderwidth=2)
+        choosealgo.pack(fill=X, padx=5, pady=5)
+
+        label = Label(choosealgo, text='Choose algorithm', font=('Helvetica', 13))
+        label.pack()
+
+        choices = ['dijkstra', 'a*']
+        self.choosealgo = StringVar()
+        self.choosealgo.set(choices[0])
+
+        choosealgochoice = Combobox(choosealgo, textvariable=self.choosealgo, values=choices)
+        choosealgochoice.pack(pady=2)
+
+        # qtframe
         qtframe = Frame(rightframe, relief=SUNKEN, borderwidth=2)
         qtframe.pack(fill=X, padx=5, pady=5)
 
@@ -76,25 +98,37 @@ class MainObject:
         label = Label(qtframe, fg='#FF8080', textvariable=self.qtlabelvar)
         label.pack()
 
+        self.timegenvar = StringVar()
+        label = Label(qtframe, textvariable=self.timegenvar)
+        label.pack()
+
         quadtreebtn = Button(qtframe, text='Generate QuadTree', command=self.onButtonQuadTreePress)
         quadtreebtn.pack(pady=2)
 
-        astarframe = Frame(rightframe, relief=SUNKEN, borderwidth=2)
-        astarframe.pack(fill=X, padx=5, pady=5)
+        # pathfindframe
+        pathfindframe = Frame(rightframe, relief=SUNKEN, borderwidth=2)
+        pathfindframe.pack(fill=X, padx=5, pady=5)
 
-        label = Label(astarframe, text='Path', font=('Helvetica', 13))
+        label = Label(pathfindframe, text='Path', font=('Helvetica', 13))
         label.pack()
 
         self.pathlabelvar = StringVar()
-        label = Label(astarframe, fg='#0000FF', textvariable=self.pathlabelvar)
+        label = Label(pathfindframe, fg='#0000FF', textvariable=self.pathlabelvar)
         label.pack()
 
-        self.astarlabelvar = StringVar()
-        label = Label(astarframe, fg='#8080FF', textvariable=self.astarlabelvar)
+        self.pathfindlabelvar = StringVar()
+        label = Label(pathfindframe, fg='#8080FF', textvariable=self.pathfindlabelvar)
         label.pack()
 
-        resetbutton = Button(astarframe, text='Reset', command=self.onReset)
-        resetbutton.pack(pady=2)
+        self.timesolvevar = StringVar()
+        label = Label(pathfindframe, textvariable=self.timesolvevar)
+        label.pack()
+
+        solvebutton = Button(pathfindframe, text='Solve', command=self.onSolve)
+        solvebutton.pack(side=LEFT, padx=5, pady=2)
+
+        resetbutton = Button(pathfindframe, text='Reset', command=self.onReset)
+        resetbutton.pack(side=RIGHT, padx=5, pady=2)
 
         label = Label(rightframe, text='Instructions', font=('Helvetica', 13))
         label.pack()
@@ -119,20 +153,28 @@ class MainObject:
             return
 
         self.canvas.coords(self.endpoint, event.x - 4, event.y - 4, event.x + 4, event.y + 4)
+        # print('endpoint {}'.format(self.canvas.coords(self.endpoint)))
 
         startx, starty, _, _ = self.canvas.coords(self.startpoint)
         start = self.quadtree.get(startx + 4, starty + 4)
         goal = self.quadtree.get(event.x, event.y)
 
         adjacent = graph.make_adjacent_function(self.quadtree)
-        path, distances, considered = astar.astar(adjacent, graph.euclidian, graph.euclidian, start, goal)
+
+        start_time = time()
+        if self.choosealgo.get() == 'dijkstra':
+            path, distances, considered = pathfinder.dijkstra_algo(adjacent, graph.euclidian, start, goal)
+        else:
+            path, distances, considered = pathfinder.astar(adjacent, graph.euclidian, graph.euclidian, start, goal)
+        end_time = time()
+        self.timesolvevar.set('Solve runtime: {} sec'.format(round(end_time - start_time, 3)))
 
         im = self.qtmapimage.copy()
-        draw = ImageDraw.Draw(im)
+        draw = ImageDraw.Draw(im, mode='RGBA')
 
-        self.astarlabelvar.set('Nodes visited: {} considered: {}'.format(len(distances), considered))
+        self.pathfindlabelvar.set('Nodes visited: {} considered: {}'.format(len(distances), considered))
         for tile in distances:
-            fill_tile(draw, tile, color=(0xC0, 0xC0, 0xFF))
+            fill_tile(draw, tile, color=(0xC0, 0xC0, 0xFF, 200))
 
         if path:
             self.pathlabelvar.set('Path Cost: {}  Nodes: {}'.format(round(distances[goal], 1), len(path)))
@@ -143,12 +185,20 @@ class MainObject:
 
         self._updateimage(im)
 
+    def onSolve(self):
+        startx, starty, _, _ = self.canvas.coords(self.endpoint)
+        e = Event()
+        e.x = startx + 4
+        e.y = starty + 4
+        self.onMouseButton1Press(e)
+
     def onMouseButton1Release(self, event):
         self.drag_startp = False
 
     def onMouseMove(self, event):
         if self.drag_startp:
             self.canvas.coords(self.startpoint, event.x - 4, event.y - 4, event.x + 4, event.y + 4)
+            # print('startpoint {}'.format(self.canvas.coords(self.startpoint)))
 
     def readAndDrawInput(self, input_file):
         self.root.config(cursor='watch')
@@ -163,7 +213,9 @@ class MainObject:
         self.canvas.delete(self.endpoint)
         self.startpoint = None
         self.endpoint = None
-        self.astarlabelvar.set('')
+        self.pathfindlabelvar.set('')
+        self.timegenvar.set('')
+        self.timesolvevar.set('')
         self.pathlabelvar.set('')
         self.root.config(cursor='')
 
@@ -185,21 +237,29 @@ class MainObject:
         )
 
         f = filedialog.askopenfile(filetypes=filetypes)
-        self.readAndDrawInput(f)
+        if f is not None:
+            self.input_file = f.name
+            self.readAndDrawInput(f)
 
     def onButtonQuadTreePress(self):
         if not self.mapimage:
             return
 
         depthlimit = int(self.limitspin.get())
+
+        start = time()
         self.quadtree = quadtree.Tile(self.mapimage, limit=depthlimit)
+        end = time()
+        self.timegenvar.set('Generate runtime: {} sec'.format(round(end - start, 3)))
+
         self.qtmapimage = self.mapimage.copy()
         draw = ImageDraw.Draw(self.qtmapimage)
         draw_quadtree(draw, self.quadtree, 8)
         self._updateimage(self.qtmapimage)
 
         self.qtlabelvar.set('Depth: {}  Nodes: {}'.format(self.quadtree.depth(), self.quadtree.count()))
-        self.astarlabelvar.set('')
+        self.timesolvevar.set('')
+        self.pathfindlabelvar.set('')
         self.pathlabelvar.set('')
 
         if not self.startpoint:
@@ -210,14 +270,8 @@ class MainObject:
             self.endpoint = self.canvas.create_oval(pos - 4, pos - 4, pos + 4, pos + 4, fill='#a441c8',
                                                     width=2)
 
-        startx, starty, _, _ = self.canvas.coords(self.endpoint)
-        e = Event()
-        e.x = startx + 4
-        e.y = starty + 4
-        self.onMouseButton1Press(e)
-
     def onReset(self):
-        with open(json_reader.BASE_DIR + "/" + self.input_file, 'r') as f:
+        with open(self.input_file, 'r') as f:
             self.readAndDrawInput(f)
 
     def _updateimage(self, image):
