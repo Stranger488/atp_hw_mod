@@ -1,0 +1,35 @@
+obstacles_first.json
+gen 0.105 0.207
+d 0.163 0.345
+a* 0.061 0.133
+
+obstacles_second.json
+gen 0.135 0.335
+d 0.249 0.53
+a* 0.04 0.078
+
+obstacles_third.json
+gen 0.195 0.45
+d 0.342 0.745
+a* 0.133 0.29
+
+obstacles_fourth.json
+gen 0.268 0.557
+d 0.482 1.085
+a* 0.182 0.36 
+
+obstacles_fifth.json
+gen 0.334 0.807
+d 0.659 1.29
+a* 0.213 0.483
+
+obstacles_seventh.json
+gen 0.399 0.942
+d 0.741 1.725
+a* 0.271 0.537
+
+obstacles_eights.json
+gen 0.546 1.121
+d 0.922 1.931
+a* 0.28 0.578
+
